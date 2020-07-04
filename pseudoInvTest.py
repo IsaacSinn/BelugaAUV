@@ -16,4 +16,3 @@ print(R)
 
 x = Tinv.dot(R)
 print(x)
-check = x.dot(Tinv)
