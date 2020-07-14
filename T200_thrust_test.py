@@ -1,4 +1,5 @@
 import can
+import time
 
 def send_one(val):
 
@@ -16,3 +17,16 @@ def send_one(val):
         print("Message sent on {}".format(bus.channel_info))
     except can.CanError:
         print("Message NOT sent")
+
+for x in range(20):
+    val = round(32768/100 * x)
+    print(val)
+    #send_one(val)
+    #time.sleep(2)
+
+for x in range(30,110, 10):
+    val = round(32768/100 * x)
+    print(val)
+    #send_one(val)
+    #time.sleep(2)
+    
