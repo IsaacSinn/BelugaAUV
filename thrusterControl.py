@@ -45,5 +45,5 @@ def movementListener(self):
     output = Tinv.dot(exResult)
     return output
 
-exResult = np.array((0,0,0,1,0,0)).reshape(6,1)
+exResult = np.array((0,0,0,0,1,0)).reshape(6,1) #strafe, drive, updown, tiltFR, tiltLR, yaw
 print(movementListener(exResult))

@@ -1,4 +1,8 @@
-
+from pubsub import pub
+from Gamepad_Normalize import Gamepad
+from threading import Timer
+from ModuleBase import Module
+import time
 import numpy as np
 import math
 
@@ -6,29 +10,45 @@ import math
 sin = math.sin(math.radians(45))
 CG = np.array((0, 0, 0))
 horizontalDist = [sin,sin,0] # FR x,y,z unit:m
-verticalDist = [1,0,1] # TF x,y,z unit:m
+verticalDist = [0,1,1] # TF x,y,z unit:m
 
 FLposition = np.array((-horizontalDist[0], horizontalDist[1], horizontalDist[2]))
 FRposition = np.array((horizontalDist[0], horizontalDist[1], horizontalDist[2])) # position x,y,z
 BLposition = np.array((-horizontalDist[0], -horizontalDist[1], horizontalDist[2]))
 BRposition = np.array((horizontalDist[0], -horizontalDist[1], horizontalDist[2]))
-TLposition = np.array((verticalDist[0], verticalDist[1], verticalDist[2]))
-TRposition = np.array((-verticalDist[0], verticalDist[1], verticalDist[2]))
+TFposition = np.array((verticalDist[0], verticalDist[1], verticalDist[2]))
+TBposition = np.array((verticalDist[0], -verticalDist[1], verticalDist[2]))
 
 FLthrust = np.array((sin, sin, 0))
 FRthrust = np.array((-sin, sin, 0)) # thrust direction
 BLthrust = np.array((sin, -sin, 0))
 BRthrust = np.array((-sin, -sin, 0))
-TLthrust = np.array((0, 0, 1))
-TRthrust = np.array((0, 0, 1))
+TFthrust = np.array((0, 0, 1))
+TBthrust = np.array((0, 0, 1))
+
+def PowerFunction(A, B):
+    if A >=0:
+        return 1/B*(((B+1)**A)-1)
+    else:
+        return -1/B*(((B+1)**-A)-1)
 
 def thrusterPreset(absPosition, thrustDirect):
     position = np.subtract(absPosition, CG)
     torque = np.cross(position, thrustDirect)
     return np.concatenate((thrustDirect, torque)).reshape(6,1)
 
+FL = thrusterPreset(FLposition, FLthrust)
+FR = thrusterPreset(FRposition, FRthrust)
+BL = thrusterPreset(BLposition, BLthrust)
+BR = thrusterPreset(BRposition, BRthrust)
+TF = thrusterPreset(TFposition, TFthrust)
+TB = thrusterPreset(TBposition, TBthrust)
+
+thruster = [FL, FR, BL, BR, TF, TB]
+T = np.concatenate((thruster), axis=1)
+
 class FormulaApply(Module):
-    def __init__ (self, max_percentage, formula_modifier = 30, Activate = 'A'):
+    def __init__ (self, max_percentage = 100, formula_modifier = 30, activate = 'A'):
         pub.subscribe(self.movementListener, 'movement')
         pub.subscribe(self.profileListener, 'profile')
         self.max_percentage = int(max_percentage)/100
@@ -42,32 +62,26 @@ class FormulaApply(Module):
     def movementListener(self,arg1):
         if self.profile_change == self.activate:
 
-            StrafePower, DrivePower, YawPower, Updown, Tilt_L, Tilt_R = arg1
+            StrafePower, DrivePower, YawPower, Updown, Tilt_F, Tilt_B = arg1
             StrafePower = PowerFunction(StrafePower, self.formula_modifier)
             DrivePower = PowerFunction(DrivePower, self.formula_modifier)
             YawPower = PowerFunction(YawPower, self.formula_modifier)
             UpdownPower = PowerFunction(Updown, self.formula_modifier)
-            Tilt_L_Power = PowerFunction(Tilt_F, self.formula_modifier)
-            Tilt_R_Power = PowerFunction(Tilt_B, self.formula_modifier)
-            Tilt_LR_Power 
-            Tilt_FB_Power = 0
+            Tilt_FB = Tilt_F + Tilt_B
+            Tilt_FB = PowerFunction(Tilt_FB, self.formula_modifier)
 
-            exResult = np.array((StrafePower, DrivePower, UpdownPower, Tilt_FB_Power, Tilt_LR_Power, YawPower))
+            exResult = np.array((StrafePower, DrivePower, UpdownPower, Tilt_FB, Tilt_LR, YawPower))
             exResult = exResult.reshape(6,1)
-
-            FL = thrusterPreset(FLposition, FLthrust)
-            FR = thrusterPreset(FRposition, FRthrust)
-            BL = thrusterPreset(BLposition, BLthrust)
-            BR = thrusterPreset(BRposition, BRthrust)
-            TL = thrusterPreset(TLposition, TLthrust)
-            TR = thrusterPreset(TRposition, TRthrust)
-
-            thruster = [FL, FR, BL, BR, TL, TR]
-
-            T = np.concatenate((thruster), axis=1)
 
             Tinv = np.linalg.pinv(T)
             finalList = Tinv.dot(exResult)
+
+            pub.sendMessage('ThrusterFL', power = finalList[0]*self.max_percentage)
+            pub.sendMessage('ThrusterFR', power = finalList[1]*self.max_percentage)
+            pub.sendMessage('ThrusterBL', power = finalList[2]*self.max_percentage)
+            pub.sendMessage('ThrusterBR', power = finalList[3]*self.max_percentage)
+            pub.sendMessage('ThrusterTF', power = finalList[4]*self.max_percentage)
+            pub.sendMessage('ThrusterTB', power = finalList[5]*self.max_percentage)
 
     def profileListener(self, profile):
         self.profile_change = profile #A, B, C, D
