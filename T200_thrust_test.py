@@ -18,7 +18,7 @@ def send_one(val):
     except can.CanError:
         print("Message NOT sent")
 
-for x in range(20):
+for x in range(21):
     val = round(32768/100 * x)
     print(val)
     #send_one(val)
@@ -29,4 +29,3 @@ for x in range(30,110, 10):
     print(val)
     #send_one(val)
     #time.sleep(2)
-    
